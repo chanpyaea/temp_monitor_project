@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-06-01
+
+### Fixed
+- **StorageManager**: Fixed config file not being created on first boot
+  - Added automatic config file creation when `loadConfig()` fails
+  - `commitLastGood()` now creates config file if it doesn't exist before backup
+  - Resolves "no permits for creation" error on fresh installations
+- **AHT10 Driver**: Improved sensor initialization reliability
+  - Increased power-on delay from 40ms to 100ms
+  - Added retry logic (3 attempts) for calibration
+  - Skip calibration command if sensor is already calibrated (status bit 3)
+  - Added detailed status logging for debugging
+  - Better error messages showing I2C error codes
+
+### Changed
+- Removed temporary diagnostic tools (I2C scanner, LittleFS formatter)
+- Cleaned up `platformio.ini` (removed `format_fs` environment)
+
 ## [1.0.0] - 2026-05-30
 
 ### Added

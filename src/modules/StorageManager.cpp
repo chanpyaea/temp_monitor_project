@@ -33,6 +33,9 @@ void StorageManager::begin(BootAction action) {
         default:
             if (!loadConfig()) {
                 LOGW("Storage", "Failed to load config, using defaults");
+                // Create initial config file with defaults
+                LOGI("Storage", "Creating initial config file with defaults");
+                saveConfigInternal();
             }
             break;
     }
@@ -166,6 +169,15 @@ bool StorageManager::saveConfig(bool force) {
 
 bool StorageManager::commitLastGood() {
     if (!mounted_) return false;
+
+    // If config file doesn't exist, create it first
+    if (!LittleFS.exists(kConfigPath)) {
+        LOGI("Storage", "Config file doesn't exist, creating it first");
+        if (!saveConfigInternal()) {
+            LOGE("Storage", "Failed to create config file");
+            return false;
+        }
+    }
 
     // Copy current config to last good
     if (LittleFS.exists(kConfigPath)) {

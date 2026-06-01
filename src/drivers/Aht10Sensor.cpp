@@ -7,54 +7,94 @@ bool Aht10Sensor::begin(uint8_t i2c_addr) {
 
     LOGI("AHT10", "Initializing AHT10 sensor at address 0x%02X", i2c_addr_);
 
-    // Wait for sensor to be ready after power-on
-    delay(40);
-
-    // Soft reset
-    if (!sendCommand(CMD_SOFT_RESET)) {
-        LOGE("AHT10", "Soft reset failed");
-        return false;
-    }
-    delay(20);
-
-    // Check if sensor is present
+    // Check if sensor is present first
     Wire.beginTransmission(i2c_addr_);
     if (Wire.endTransmission() != 0) {
         LOGE("AHT10", "Sensor not found at address 0x%02X", i2c_addr_);
         return false;
     }
 
-    // Initialize and calibrate
-    if (!calibrate()) {
-        LOGE("AHT10", "Calibration failed");
+    // Wait longer for sensor to be ready after power-on (datasheet: 20-40ms)
+    delay(100);
+
+    // Soft reset
+    if (!sendCommand(CMD_SOFT_RESET)) {
+        LOGE("AHT10", "Soft reset failed");
         return false;
     }
+    delay(40);  // Increased delay after reset
 
-    initialized_ = true;
-    LOGI("AHT10", "Sensor initialized successfully");
-    return true;
+    // Read status to verify sensor is responding
+    uint8_t status;
+    if (!readData(&status, 1)) {
+        LOGE("AHT10", "Failed to read status after reset");
+        return false;
+    }
+    LOGI("AHT10", "Status after reset: 0x%02X", status);
+
+    // Initialize and calibrate (retry up to 3 times)
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (calibrate()) {
+            initialized_ = true;
+            LOGI("AHT10", "Sensor initialized successfully");
+            return true;
+        }
+        LOGW("AHT10", "Calibration attempt %d failed, retrying...", attempt + 1);
+        delay(50);
+    }
+
+    LOGE("AHT10", "Calibration failed after 3 attempts");
+    return false;
 }
 
 bool Aht10Sensor::calibrate() {
-    // Send calibration command
-    if (!sendCommand(CMD_INIT, 0x08, 0x00)) {
-        return false;
-    }
-
-    delay(10);
-
-    // Check calibration status
+    // Read current status first
     uint8_t status;
     if (!readData(&status, 1)) {
+        LOGE("AHT10", "Failed to read initial status");
         return false;
     }
 
+    LOGI("AHT10", "Initial status: 0x%02X (busy=%d, cal=%d)",
+         status, (status & STATUS_BUSY) ? 1 : 0, (status & STATUS_CALIBRATED) ? 1 : 0);
+
+    // If already calibrated, skip calibration command
+    if (status & STATUS_CALIBRATED) {
+        LOGI("AHT10", "Sensor already calibrated, skipping init command");
+        return true;
+    }
+
+    // Send calibration command (0xE1 0x08 0x00)
+    Wire.beginTransmission(i2c_addr_);
+    Wire.write(CMD_INIT);
+    Wire.write(0x08);
+    Wire.write(0x00);
+    uint8_t result = Wire.endTransmission();
+
+    if (result != 0) {
+        LOGE("AHT10", "Failed to send calibration command (error: %d)", result);
+        return false;
+    }
+
+    // Wait for calibration to complete (datasheet: 10ms typical)
+    delay(50);
+
+    // Check calibration status (read status byte)
+    if (!readData(&status, 1)) {
+        LOGE("AHT10", "Failed to read calibration status");
+        return false;
+    }
+
+    LOGI("AHT10", "Calibration status: 0x%02X (busy=%d, cal=%d)",
+         status, (status & STATUS_BUSY) ? 1 : 0, (status & STATUS_CALIBRATED) ? 1 : 0);
+
+    // Check if calibrated bit is set (bit 3)
     if (!(status & STATUS_CALIBRATED)) {
         LOGE("AHT10", "Sensor not calibrated (status: 0x%02X)", status);
         return false;
     }
 
-    LOGI("AHT10", "Sensor calibrated (status: 0x%02X)", status);
+    LOGI("AHT10", "Sensor calibrated successfully");
     return true;
 }
 
