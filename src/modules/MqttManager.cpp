@@ -9,6 +9,9 @@ void MqttManager::begin(StorageManager &storage, NetworkManager &network) {
 
     mqtt_client_ = new PubSubClient(wifi_client_);
 
+    // Increase buffer size for discovery messages (default is 256 bytes)
+    mqtt_client_->setBufferSize(1024);
+
     const auto &cfg = storage_->config();
     if (strlen(cfg.mqtt_host) > 0) {
         mqtt_client_->setServer(cfg.mqtt_host, cfg.mqtt_port);
@@ -216,7 +219,14 @@ void MqttManager::publishDiscoveryConfig(const char *component, const char *name
     char payload[1024];
     serializeJson(doc, payload, sizeof(payload));
 
-    mqtt_client_->publish(topic, payload, true); // Retained
+    LOGI("MQTT", "Publishing discovery to: %s", topic);
+    LOGD("MQTT", "Payload: %s", payload);
+
+    bool success = mqtt_client_->publish(topic, payload, true); // Retained
+
+    if (!success) {
+        LOGE("MQTT", "Failed to publish discovery for: %s", name);
+    }
 
     LOGI("MQTT", "Discovery sent: %s", name);
 }
