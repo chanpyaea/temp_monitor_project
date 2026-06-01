@@ -37,7 +37,3 @@ private:
     static constexpr uint16_t WEB_SERVER_PORT = 80;
     static constexpr uint16_t DNS_PORT = 53;
 };
-
-// Define static constants
-constexpr uint16_t WebConfig::WEB_SERVER_PORT;
-constexpr uint16_t WebConfig::DNS_PORT;
