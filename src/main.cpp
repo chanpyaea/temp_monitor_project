@@ -15,6 +15,8 @@
 #include "modules/MqttManager.h"
 
 #include "ui/DisplayManager.h"
+#include "ui/SerialConfig.h"
+#include "ui/WebConfig.h"
 
 // Global managers (static allocation)
 StorageManager storage;
@@ -23,6 +25,8 @@ NetworkManager networkManager;
 MqttManager mqttManager;
 DisplayManager displayManager;
 MemoryMonitor memoryMonitor;
+SerialConfig serialConfig;
+WebConfig webConfig;
 
 // Global data
 SensorData currentData;
@@ -88,11 +92,24 @@ void setup() {
     memoryMonitor.begin(Config::MEM_LOG_INTERVAL_MS);
     memoryMonitor.logNow("boot");
 
+    // Initialize serial configuration
+    serialConfig.begin(storage);
+
+    // Initialize web configuration
+    webConfig.begin(storage, networkManager);
+
+    // Check if we should start AP mode (no WiFi configured or failed to connect)
+    if (!storage.config().wifi_enabled || strlen(storage.config().wifi_ssid) == 0) {
+        LOGI("Main", "No WiFi configured, starting AP mode for configuration");
+        webConfig.startAPMode();
+    }
+
     // Setup watchdog
     Watchdog::setup(Config::WATCHDOG_TIMEOUT_MS);
 
     LOGI("Main", "Initialization complete");
     LOGI("Main", "Free heap: %u bytes", ESP.getFreeHeap());
+    LOGI("Main", "Press 'c' in serial monitor to configure settings");
 }
 
 void loop() {
@@ -144,6 +161,12 @@ void loop() {
 
     // Memory monitoring
     memoryMonitor.poll(now);
+
+    // Serial configuration
+    serialConfig.poll();
+
+    // Web configuration
+    webConfig.poll();
 
     // Reset watchdog
     Watchdog::kick();

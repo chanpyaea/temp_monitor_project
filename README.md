@@ -8,6 +8,9 @@ A professional ESP32-based temperature and humidity monitoring system with OLED 
 - **OLED Display** - SSD1306 128x64 display
 - **WiFi Connectivity** - Auto-connect with retry logic
 - **MQTT Integration** - Home Assistant auto-discovery
+- **Multiple Configuration Methods** - Serial menu, web interface, or code
+- **WiFi AP Mode** - Automatic access point for initial setup
+- **Web Configuration Portal** - Browser-based settings management
 - **Safe Boot** - Automatic crash recovery and config rollback
 - **Persistent Storage** - Configuration saved to LittleFS
 - **Watchdog Timer** - Automatic recovery from hangs
@@ -73,21 +76,56 @@ pio device monitor -b 115200
 
 ## Configuration
 
-### WiFi Setup
+The firmware provides **three ways** to configure settings:
 
-On first boot, configure WiFi credentials via serial or by editing the config file:
+### Method 1: Serial Configuration Menu (Recommended for initial setup)
+
+1. Connect via USB and open serial monitor at 115200 baud
+2. Press **'c'** to enter configuration menu
+3. Follow the interactive prompts to configure:
+   - WiFi credentials (SSID and password)
+   - MQTT broker settings (host, port, username, password)
+   - Sensor calibration offsets
+4. Save and restart
+
+**Example:**
+```
+Press 'c' to enter configuration menu
+========================================
+    TEMPERATURE MONITOR CONFIG
+========================================
+1. WiFi Settings
+2. MQTT Settings
+3. Sensor Calibration
+4. View Status
+5. Save & Exit
+6. Exit without saving
+========================================
+Select option (1-6):
+```
+
+### Method 2: Web Configuration Interface (Easiest)
+
+**First-time setup (no WiFi configured):**
+1. Power on the device
+2. Connect to WiFi network: **"TempMonitor-Setup"** (password: **12345678**)
+3. Open browser and go to **http://192.168.4.1**
+4. Configure WiFi and MQTT settings
+5. Save - device will restart and connect to your network
+
+**After WiFi is configured:**
+1. Find device IP address from serial monitor or router
+2. Open browser and go to **http://[device-ip]**
+3. Configure settings via web interface
+
+### Method 3: Manual Code Configuration (Advanced)
+
+Edit `main.cpp` and add configuration code in `setup()`:
 
 ```cpp
-// In main.cpp or via web interface (future feature)
 storage.config().wifi_ssid = "YourSSID";
 storage.config().wifi_password = "YourPassword";
 storage.config().wifi_enabled = true;
-storage.saveConfig(true);
-```
-
-### MQTT Setup
-
-```cpp
 storage.config().mqtt_host = "192.168.1.100";
 storage.config().mqtt_port = 1883;
 storage.config().mqtt_user = "username";
@@ -117,9 +155,12 @@ temp_monitor_project/
 │   │   ├── NetworkManager.cpp/h    # WiFi management
 │   │   └── MqttManager.cpp/h       # MQTT client
 │   ├── drivers/                # Hardware drivers
+│   │   ├── Aht10Sensor.cpp/h   # AHT10 sensor driver
 │   │   └── DhtSensor.cpp/h     # DHT sensor driver
 │   └── ui/                     # User interface
-│       └── DisplayManager.cpp/h # OLED display
+│       ├── DisplayManager.cpp/h # OLED display
+│       ├── SerialConfig.cpp/h   # Serial configuration menu
+│       └── WebConfig.cpp/h      # Web configuration interface
 ├── include/                    # Header files
 ├── data/                       # Filesystem data
 └── test/                       # Unit tests
@@ -136,6 +177,8 @@ Each subsystem is encapsulated in a manager class:
 - **NetworkManager** - WiFi connection with retry logic
 - **MqttManager** - MQTT publishing and Home Assistant integration
 - **DisplayManager** - OLED display updates
+- **SerialConfig** - Interactive serial configuration menu
+- **WebConfig** - Web-based configuration interface with AP mode
 
 ### Safe Boot System
 

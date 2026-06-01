@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-01
+
+### Added
+- **Serial Configuration Menu** - Interactive USB serial menu for configuring all settings
+  - Press 'c' in serial monitor to enter configuration mode
+  - Configure WiFi, MQTT, and sensor calibration via serial
+  - View current status and save settings
+  - 30-second timeout for inactive sessions
+- **Web Configuration Interface** - Browser-based configuration portal
+  - Automatic AP mode when WiFi not configured
+  - Captive portal for easy access (connects to "TempMonitor-Setup")
+  - Configure all settings via web browser
+  - Real-time status page showing WiFi, MQTT, and system info
+  - Responsive design for mobile and desktop
+- **Auto AP Mode** - Starts WiFi access point automatically if no WiFi configured
+  - SSID: "TempMonitor-Setup"
+  - Password: "12345678"
+  - Access web interface at http://192.168.4.1
+
+### Changed
+- Added ESP Async WebServer library dependency
+- Updated main.cpp to integrate serial and web configuration
+- Improved user experience with multiple configuration methods
+
 ## [1.0.1] - 2026-06-01
 
 ### Fixed
