@@ -3,6 +3,10 @@
 #include "config/AppConfig.h"
 #include <WiFi.h>
 
+// Define AP credentials as constants
+static const char* AP_SSID = "TempMonitor-Setup";
+static const char* AP_PASS = "12345678";
+
 void WebConfig::begin(StorageManager &storage, NetworkManager &network) {
     storage_ = &storage;
     network_ = &network;
