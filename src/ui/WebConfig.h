@@ -33,7 +33,4 @@ private:
     WebServer *server_ = nullptr;
     DNSServer *dns_server_ = nullptr;
     bool ap_mode_ = false;
-
-    static constexpr uint16_t WEB_SERVER_PORT = 80;
-    static constexpr uint16_t DNS_PORT = 53;
 };
