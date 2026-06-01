@@ -62,6 +62,14 @@ bool MqttManager::connect() {
         LOGI("MQTT", "Connected to broker");
         reconnect_attempts_ = 0;
         discovery_sent_ = false;
+
+        // Send discovery immediately after connection
+        if (cfg.mqtt_discovery) {
+            LOGI("MQTT", "Sending Home Assistant discovery messages");
+            sendDiscovery();
+            discovery_sent_ = true;
+        }
+
         return true;
     } else {
         LOGW("MQTT", "Connection failed, rc=%d", mqtt_client_->state());
@@ -105,12 +113,6 @@ bool MqttManager::publish(const SensorData &data, const SystemStatus &status) {
         return false;
     }
     last_publish_ms_ = now;
-
-    // Send discovery once after connection
-    if (!discovery_sent_ && storage_->config().mqtt_discovery) {
-        sendDiscovery();
-        discovery_sent_ = true;
-    }
 
     // Build and publish payload
     char payload[512];
