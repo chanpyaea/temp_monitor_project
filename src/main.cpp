@@ -25,7 +25,7 @@ NetworkManager networkManager;
 MqttManager mqttManager;
 DisplayManager displayManager;
 MemoryMonitor memoryMonitor;
-SerialConfig serialConfig;
+SerialConfigMenu serialConfig;
 WebConfig webConfig;
 
 // Global data

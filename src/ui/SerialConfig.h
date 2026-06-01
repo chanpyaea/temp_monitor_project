@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include "modules/StorageManager.h"
 
-class SerialConfig {
+class SerialConfigMenu {
 public:
     void begin(StorageManager &storage);
     void poll();

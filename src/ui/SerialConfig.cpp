@@ -2,13 +2,13 @@
 #include "core/Logger.h"
 #include "config/AppConfig.h"
 
-void SerialConfig::begin(StorageManager &storage) {
+void SerialConfigMenu::begin(StorageManager &storage) {
     storage_ = &storage;
     LOGI("SerialConfig", "Serial configuration available");
     LOGI("SerialConfig", "Press 'c' to enter configuration menu");
 }
 
-void SerialConfig::poll() {
+void SerialConfigMenu::poll() {
     if (!storage_) return;
 
     // Check for 'c' key to enter config mode
@@ -36,7 +36,7 @@ void SerialConfig::poll() {
     }
 }
 
-void SerialConfig::showMainMenu() {
+void SerialConfigMenu::showMainMenu() {
     Serial.println("\n========================================");
     Serial.println("    TEMPERATURE MONITOR CONFIG");
     Serial.println("========================================");
@@ -50,7 +50,7 @@ void SerialConfig::showMainMenu() {
     Serial.print("Select option (1-6): ");
 }
 
-void SerialConfig::showWiFiMenu() {
+void SerialConfigMenu::showWiFiMenu() {
     const auto &cfg = storage_->config();
 
     Serial.println("\n--- WiFi Settings ---");
@@ -64,7 +64,7 @@ void SerialConfig::showWiFiMenu() {
     Serial.print("Select option (1-5): ");
 }
 
-void SerialConfig::showMQTTMenu() {
+void SerialConfigMenu::showMQTTMenu() {
     const auto &cfg = storage_->config();
 
     Serial.println("\n--- MQTT Settings ---");
@@ -87,7 +87,7 @@ void SerialConfig::showMQTTMenu() {
     Serial.print("Select option (0-9): ");
 }
 
-void SerialConfig::showSensorMenu() {
+void SerialConfigMenu::showSensorMenu() {
     const auto &cfg = storage_->config();
 
     Serial.println("\n--- Sensor Calibration ---");
@@ -101,7 +101,7 @@ void SerialConfig::showSensorMenu() {
     Serial.print("Select option (1-4): ");
 }
 
-void SerialConfig::showStatusMenu() {
+void SerialConfigMenu::showStatusMenu() {
     const auto &cfg = storage_->config();
 
     Serial.println("\n========================================");
@@ -132,7 +132,7 @@ void SerialConfig::showStatusMenu() {
     Serial.println("\nPress any key to continue...");
 }
 
-void SerialConfig::handleInput() {
+void SerialConfigMenu::handleInput() {
     static char menu_state = 0; // 0=main, 1=wifi, 2=mqtt, 3=sensor
     static char input_buffer[128];
 
@@ -319,7 +319,7 @@ void SerialConfig::handleInput() {
     }
 }
 
-void SerialConfig::readLine(char *buffer, size_t max_len) {
+void SerialConfigMenu::readLine(char *buffer, size_t max_len) {
     size_t pos = 0;
     buffer[0] = '\0';
 
@@ -351,7 +351,7 @@ void SerialConfig::readLine(char *buffer, size_t max_len) {
     Serial.println();
 }
 
-void SerialConfig::clearInputBuffer() {
+void SerialConfigMenu::clearInputBuffer() {
     while (Serial.available()) {
         Serial.read();
     }
