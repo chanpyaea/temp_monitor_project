@@ -5,7 +5,7 @@
 namespace Config {
     // Application info
     constexpr const char* APP_NAME = "TempMonitor";
-    constexpr const char* APP_VERSION = "1.0.0";
+    constexpr const char* APP_VERSION = "1.1.1";
 
     // Timing constants
     constexpr uint32_t SENSOR_POLL_INTERVAL_MS = 2000;      // Read sensor every 2 seconds

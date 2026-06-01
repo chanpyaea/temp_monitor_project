@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-06-01
+
+### Fixed
+- **MQTT Discovery Not Working** - Critical fix for Home Assistant auto-discovery
+  - Increased MQTT buffer size from 256 to 1024 bytes (discovery messages are ~500-700 bytes)
+  - Discovery messages now sent immediately after MQTT connection (was delayed 30 seconds)
+  - Added debug logging for discovery topics and payloads
+  - Added error logging if discovery publish fails
+- **Compilation Errors** - Fixed multiple build issues
+  - Renamed `SerialConfig` to `SerialConfigMenu` (name conflict with ESP32 framework enum)
+  - Removed AsyncWebServer dependency (wrong library for RP2040 was being pulled)
+  - Using built-in WebServer and DNSServer from ESP32 framework
+  - Fixed static constexpr linker errors by moving constants to file scope
+
+### Changed
+- MQTT buffer size increased to 1024 bytes for reliable discovery message delivery
+- Discovery messages now publish immediately on connection instead of waiting for first data publish
+
 ## [1.1.0] - 2026-06-01
 
 ### Added
