@@ -142,3 +142,75 @@ void DisplayManager::setBrightness(uint8_t brightness) {
     // SSD1306 doesn't have brightness control via library
     // Would need to send raw commands
 }
+
+void DisplayManager::updateWithStats(const SensorData &data, const SystemStatus &status, const DataStats &stats) {
+    if (!display_ok_) return;
+
+    // Rate limiting
+    uint32_t now = millis();
+    if (now - last_update_ms_ < Config::DISPLAY_UPDATE_INTERVAL_MS) {
+        return;
+    }
+    last_update_ms_ = now;
+
+    display_->clearDisplay();
+
+    // Draw current temperature (smaller to make room for stats)
+    display_->setTextSize(2);
+    display_->setCursor(5, 0);
+    if (data.has_temperature) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1fC", data.temperature_c);
+        display_->print(buf);
+    } else {
+        display_->print("--.-C");
+    }
+
+    // Draw current humidity
+    display_->setTextSize(1);
+    display_->setCursor(90, 5);
+    if (data.has_humidity) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.0f%%", data.humidity);
+        display_->print(buf);
+    }
+
+    // Draw statistics
+    drawStats(stats);
+
+    // Draw status icons
+    drawStatus(status);
+
+    display_->display();
+}
+
+void DisplayManager::drawStats(const DataStats &stats) {
+    if (stats.sample_count == 0) {
+        display_->setTextSize(1);
+        display_->setCursor(5, 25);
+        display_->print("No history data");
+        return;
+    }
+
+    display_->setTextSize(1);
+
+    // Temperature stats
+    display_->setCursor(0, 20);
+    display_->print("T:");
+    display_->setCursor(15, 20);
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.1f/%.1f/%.1f", stats.temp_min, stats.temp_avg, stats.temp_max);
+    display_->print(buf);
+
+    // Humidity stats
+    display_->setCursor(0, 30);
+    display_->print("H:");
+    display_->setCursor(15, 30);
+    snprintf(buf, sizeof(buf), "%.0f/%.0f/%.0f", stats.hum_min, stats.hum_avg, stats.hum_max);
+    display_->print(buf);
+
+    // Sample count
+    display_->setCursor(0, 45);
+    snprintf(buf, sizeof(buf), "Samples: %d", stats.sample_count);
+    display_->print(buf);
+}

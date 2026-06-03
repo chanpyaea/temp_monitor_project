@@ -5,7 +5,7 @@
 namespace Config {
     // Application info
     constexpr const char* APP_NAME = "TempMonitor";
-    constexpr const char* APP_VERSION = "1.1.1";
+    constexpr const char* APP_VERSION = "1.2.0";
 
     // Timing constants
     constexpr uint32_t SENSOR_POLL_INTERVAL_MS = 2000;      // Read sensor every 2 seconds
@@ -89,6 +89,11 @@ namespace Config {
         bool display_enabled;
         uint8_t display_brightness;
 
+        // OTA settings
+        char ota_github_repo[128];
+        bool ota_auto_check;
+        bool ota_enabled;
+
         // Constructor with defaults
         StoredConfig() :
             wifi_enabled(false),
@@ -99,7 +104,9 @@ namespace Config {
             hum_offset(HUM_OFFSET_DEFAULT),
             temp_units_celsius(true),
             display_enabled(true),
-            display_brightness(128)
+            display_brightness(128),
+            ota_auto_check(true),
+            ota_enabled(true)
         {
             wifi_ssid[0] = '\0';
             wifi_password[0] = '\0';
@@ -108,6 +115,7 @@ namespace Config {
             mqtt_password[0] = '\0';
             strncpy(mqtt_base_topic, DEFAULT_MQTT_BASE_TOPIC, sizeof(mqtt_base_topic));
             strncpy(mqtt_device_name, APP_NAME, sizeof(mqtt_device_name));
+            strncpy(ota_github_repo, "chanpyaea/temp_monitor_project", sizeof(ota_github_repo));
         }
     };
 }

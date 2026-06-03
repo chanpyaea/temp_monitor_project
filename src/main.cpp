@@ -13,6 +13,8 @@
 #include "modules/SensorManager.h"
 #include "modules/NetworkManager.h"
 #include "modules/MqttManager.h"
+#include "modules/OtaManager.h"
+#include "modules/DataLogger.h"
 
 #include "ui/DisplayManager.h"
 #include "ui/SerialConfig.h"
@@ -23,6 +25,8 @@ StorageManager storage;
 SensorManager sensorManager;
 NetworkManager networkManager;
 MqttManager mqttManager;
+OtaManager otaManager;
+DataLogger dataLogger;
 DisplayManager displayManager;
 MemoryMonitor memoryMonitor;
 SerialConfigMenu serialConfig;
@@ -88,15 +92,25 @@ void setup() {
     // Initialize MQTT manager
     mqttManager.begin(storage, networkManager);
 
+    // Initialize OTA manager
+    otaManager.begin(storage, networkManager);
+
+    // Initialize data logger
+    dataLogger.begin();
+
     // Initialize memory monitor
     memoryMonitor.begin(Config::MEM_LOG_INTERVAL_MS);
     memoryMonitor.logNow("boot");
 
     // Initialize serial configuration
     serialConfig.begin(storage);
+    serialConfig.setOtaManager(&otaManager);
+    serialConfig.setDataLogger(&dataLogger);
 
     // Initialize web configuration
     webConfig.begin(storage, networkManager);
+    webConfig.setOtaManager(&otaManager);
+    webConfig.setDataLogger(&dataLogger);
 
     // Check if we should start AP mode (no WiFi configured or failed to connect)
     if (!storage.config().wifi_enabled || strlen(storage.config().wifi_ssid) == 0) {
@@ -140,6 +154,12 @@ void loop() {
     if (mqttManager.isConnected()) {
         mqttManager.publish(currentData, systemStatus);
     }
+
+    // Poll data logger
+    dataLogger.poll(now, currentData);
+
+    // Poll OTA manager
+    otaManager.poll();
 
     // Update display
     displayManager.update(currentData, systemStatus);

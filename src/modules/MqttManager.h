@@ -15,6 +15,7 @@ public:
     bool connect();
     void disconnect();
     bool publish(const SensorData &data, const SystemStatus &status);
+    bool publishHistory(const DataStats &stats);
     bool isConnected() const;
 
     void sendDiscovery();

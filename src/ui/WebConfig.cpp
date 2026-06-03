@@ -73,6 +73,11 @@ void WebConfig::setupRoutes() {
     server_->on("/save", HTTP_POST, [this]() { handleSave(); });
     server_->on("/status", [this]() { handleStatus(); });
     server_->on("/restart", [this]() { handleRestart(); });
+    server_->on("/ota", [this]() { handleOTA(); });
+    server_->on("/ota/check", [this]() { handleOTACheck(); });
+    server_->on("/ota/install", [this]() { handleOTAInstall(); });
+    server_->on("/history", [this]() { handleHistory(); });
+    server_->on("/export", [this]() { handleExport(); });
     server_->onNotFound([this]() { handleNotFound(); });
 }
 
@@ -83,6 +88,8 @@ void WebConfig::handleRoot() {
     html += "<div class='menu'>";
     html += "<a href='/config' class='btn'>Configuration</a>";
     html += "<a href='/status' class='btn'>Status</a>";
+    html += "<a href='/history' class='btn'>History</a>";
+    html += "<a href='/ota' class='btn btn-success'>OTA Update</a>";
     html += "<a href='/restart' class='btn btn-danger'>Restart</a>";
     html += "</div>";
     html += getHTMLFooter();
@@ -148,6 +155,14 @@ void WebConfig::handleSave() {
         storage_->config().hum_offset = server_->arg("hum_offset").toFloat();
     }
 
+    // OTA settings
+    if (server_->hasArg("ota_github_repo")) {
+        strncpy(storage_->config().ota_github_repo, server_->arg("ota_github_repo").c_str(),
+                sizeof(storage_->config().ota_github_repo));
+    }
+    storage_->config().ota_enabled = server_->hasArg("ota_enabled");
+    storage_->config().ota_auto_check = server_->hasArg("ota_auto_check");
+
     // Save configuration
     storage_->saveConfig(true);
 
@@ -191,6 +206,146 @@ void WebConfig::handleNotFound() {
     } else {
         server_->send(404, "text/plain", "Not Found");
     }
+}
+
+void WebConfig::handleOTA() {
+    server_->send(200, "text/html", getOTAPage());
+}
+
+void WebConfig::handleOTACheck() {
+    if (!ota_manager_) {
+        server_->send(500, "text/plain", "OTA Manager not initialized");
+        return;
+    }
+
+    bool result = ota_manager_->checkForUpdate();
+
+    String html = getHTMLHeader();
+    html += "<h1>Checking for Updates...</h1>";
+
+    if (result) {
+        html += "<p style='color: green;'>✓ Update available: " + String(ota_manager_->latestVersion()) + "</p>";
+        html += "<p>Current version: " + String(Config::APP_VERSION) + "</p>";
+        html += "<div class='menu'>";
+        html += "<a href='/ota/install' class='btn btn-success'>Install Update</a>";
+        html += "<a href='/ota' class='btn'>Back</a>";
+        html += "</div>";
+    } else {
+        html += "<p style='color: orange;'>No update available</p>";
+        html += "<p>Current version: " + String(Config::APP_VERSION) + " (latest)</p>";
+        if (strlen(ota_manager_->errorMessage()) > 0) {
+            html += "<p style='color: red;'>Error: " + String(ota_manager_->errorMessage()) + "</p>";
+        }
+        html += "<div class='menu'>";
+        html += "<a href='/ota' class='btn'>Back</a>";
+        html += "</div>";
+    }
+
+    html += getHTMLFooter();
+    server_->send(200, "text/html", html);
+}
+
+void WebConfig::handleOTAInstall() {
+    if (!ota_manager_) {
+        server_->send(500, "text/plain", "OTA Manager not initialized");
+        return;
+    }
+
+    String html = getHTMLHeader();
+    html += "<h1>Installing Update...</h1>";
+    html += "<p>Downloading firmware: " + String(ota_manager_->latestVersion()) + "</p>";
+    html += "<p>Please wait, this may take a few minutes...</p>";
+    html += "<p style='color: red;'><strong>Do not power off the device!</strong></p>";
+    html += "<div id='progress'>";
+    html += "<p>Progress: <span id='percent'>0%</span></p>";
+    html += "</div>";
+    html += "<script>";
+    html += "setInterval(function(){ location.reload(); }, 5000);";
+    html += "</script>";
+    html += getHTMLFooter();
+
+    server_->send(200, "text/html", html);
+
+    // Start the update (this will reboot on success)
+    ota_manager_->startUpdate();
+}
+
+String WebConfig::getOTAPage() {
+    const auto &cfg = storage_->config();
+
+    String html = getHTMLHeader();
+    html += "<h1>OTA Update</h1>";
+
+    html += "<h2>Current Version</h2>";
+    html += "<div class='status-item'>";
+    html += "<span class='status-label'>Version:</span> ";
+    html += "<span class='status-value'>" + String(Config::APP_VERSION) + "</span>";
+    html += "</div>";
+
+    html += "<h2>Settings</h2>";
+    html += "<div class='status-item'>";
+    html += "<span class='status-label'>GitHub Repo:</span> ";
+    html += "<span class='status-value'>" + String(cfg.ota_github_repo) + "</span>";
+    html += "</div>";
+    html += "<div class='status-item'>";
+    html += "<span class='status-label'>OTA Enabled:</span> ";
+    html += "<span class='status-value'>" + String(cfg.ota_enabled ? "Yes" : "No") + "</span>";
+    html += "</div>";
+    html += "<div class='status-item'>";
+    html += "<span class='status-label'>Auto-check:</span> ";
+    html += "<span class='status-value'>" + String(cfg.ota_auto_check ? "Yes" : "No") + "</span>";
+    html += "</div>";
+
+    if (ota_manager_) {
+        html += "<h2>Update Status</h2>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>State:</span> ";
+
+        switch (ota_manager_->state()) {
+            case OtaManager::UpdateState::IDLE:
+                html += "<span class='status-value'>Idle</span>";
+                break;
+            case OtaManager::UpdateState::CHECKING:
+                html += "<span class='status-value'>Checking...</span>";
+                break;
+            case OtaManager::UpdateState::UPDATE_AVAILABLE:
+                html += "<span class='status-value' style='color: green;'>Update Available: " + String(ota_manager_->latestVersion()) + "</span>";
+                break;
+            case OtaManager::UpdateState::DOWNLOADING:
+                html += "<span class='status-value'>Downloading... " + String(ota_manager_->getProgress()) + "%</span>";
+                break;
+            case OtaManager::UpdateState::INSTALLING:
+                html += "<span class='status-value'>Installing...</span>";
+                break;
+            case OtaManager::UpdateState::SUCCESS:
+                html += "<span class='status-value' style='color: green;'>Success</span>";
+                break;
+            case OtaManager::UpdateState::ERROR:
+                html += "<span class='status-value' style='color: red;'>Error: " + String(ota_manager_->errorMessage()) + "</span>";
+                break;
+        }
+
+        html += "</div>";
+    }
+
+    html += "<div class='menu'>";
+
+    if (cfg.ota_enabled) {
+        html += "<a href='/ota/check' class='btn btn-success'>Check for Updates</a>";
+
+        if (ota_manager_ && ota_manager_->isUpdateAvailable()) {
+            html += "<a href='/ota/install' class='btn btn-success'>Install " + String(ota_manager_->latestVersion()) + "</a>";
+        }
+    } else {
+        html += "<p style='color: orange;'>OTA updates are disabled. Enable in Configuration.</p>";
+    }
+
+    html += "<a href='/' class='btn'>Back to Home</a>";
+    html += "</div>";
+
+    html += getHTMLFooter();
+
+    return html;
 }
 
 String WebConfig::getHTMLHeader() {
@@ -298,6 +453,21 @@ String WebConfig::getConfigPage() {
     html += "<input type='number' name='hum_offset' value='" + String(cfg.hum_offset, 2) + "' step='0.1'>";
     html += "</div>";
 
+    // OTA Settings
+    html += "<h2>OTA Update Settings</h2>";
+    html += "<div class='form-group'>";
+    html += "<label>GitHub Repository:</label>";
+    html += "<input type='text' name='ota_github_repo' value='" + String(cfg.ota_github_repo) + "' placeholder='owner/repo'>";
+    html += "</div>";
+    html += "<div class='form-group'>";
+    html += "<input type='checkbox' name='ota_enabled' id='ota_enabled' " + String(cfg.ota_enabled ? "checked" : "") + ">";
+    html += "<label for='ota_enabled' class='checkbox-label'>Enable OTA Updates</label>";
+    html += "</div>";
+    html += "<div class='form-group'>";
+    html += "<input type='checkbox' name='ota_auto_check' id='ota_auto_check' " + String(cfg.ota_auto_check ? "checked" : "") + ">";
+    html += "<label for='ota_auto_check' class='checkbox-label'>Auto-check on Boot</label>";
+    html += "</div>";
+
     html += "<div class='form-group'>";
     html += "<button type='submit' class='btn btn-success'>Save Configuration</button>";
     html += "<a href='/' class='btn'>Cancel</a>";
@@ -367,4 +537,31 @@ String WebConfig::getStatusPage() {
     html += getHTMLFooter();
 
     return html;
+}
+
+void WebConfig::handleHistory() {
+    if (!data_logger_) {
+        server_->send(500, "text/plain", "Data Logger not initialized");
+        return;
+    }
+
+    String json_output;
+    data_logger_->exportJSON(json_output);
+
+    server_->send(200, "application/json", json_output);
+    LOGI("WebConfig", "Served history JSON (%d bytes)", json_output.length());
+}
+
+void WebConfig::handleExport() {
+    if (!data_logger_) {
+        server_->send(500, "text/plain", "Data Logger not initialized");
+        return;
+    }
+
+    String csv_output;
+    data_logger_->exportCSV(csv_output);
+
+    server_->setContentLength(csv_output.length());
+    server_->send(200, "text/csv", csv_output);
+    LOGI("WebConfig", "Served CSV export (%d bytes)", csv_output.length());
 }

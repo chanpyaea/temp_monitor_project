@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-03
+
+### Added
+- **Data Logging & History** - 24-hour circular buffer with statistics
+  - Stores sensor readings every 5 minutes (288 entries = 24 hours)
+  - Automatic calculation of min/max/avg for temperature and humidity
+  - Memory-efficient circular buffer implementation
+  - Zero external storage required - all in RAM
+- **Web History Endpoints** - RESTful API for data access
+  - `/history` - JSON endpoint with full history and statistics
+  - `/export` - CSV export for spreadsheet analysis
+  - Accessible from web configuration portal
+- **MQTT History Publishing** - Statistics over MQTT
+  - Publishes min/max/avg to `<base_topic>/history`
+  - Compatible with Home Assistant for trend monitoring
+  - Separate from regular sensor data publishing
+- **Display Statistics** - Enhanced OLED display option
+  - New `updateWithStats()` method shows min/max/avg on screen
+  - Shows sample count for data confidence
+  - Compact layout fits all info on 128x64 display
+
+### Changed
+- Updated `AppData.h` with `HistoryEntry` and `DataStats` structures
+- Added `DataLogger` module to manage history buffer
+- Extended `MqttManager` with `publishHistory()` method
+- Enhanced `DisplayManager` with statistics display capability
+- Web interface now includes "History" button on main menu
+
+### Technical Details
+- **Memory Usage**: ~9KB RAM for 288 history entries (24h @ 5min intervals)
+- **History Format**: Timestamp + Temperature + Humidity per entry
+- **Statistics**: Calculated on-the-fly from circular buffer
+- **Export Formats**: JSON (with metadata) and CSV (compatible with Excel/Google Sheets)
+
 ## [1.1.1] - 2026-06-01
 
 ### Fixed

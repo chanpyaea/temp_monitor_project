@@ -87,6 +87,11 @@ bool StorageManager::loadConfig() {
     config_.display_enabled = doc["display_enabled"] | true;
     config_.display_brightness = doc["display_brightness"] | 128;
 
+    // Load OTA settings
+    strlcpy(config_.ota_github_repo, doc["ota_github_repo"] | "chanpyaea/temp_monitor_project", sizeof(config_.ota_github_repo));
+    config_.ota_auto_check = doc["ota_auto_check"] | true;
+    config_.ota_enabled = doc["ota_enabled"] | true;
+
     LOGI("Storage", "Config loaded successfully");
     config_loaded_ = true;
     return true;
@@ -121,6 +126,11 @@ bool StorageManager::saveConfigInternal() {
     // Display settings
     doc["display_enabled"] = config_.display_enabled;
     doc["display_brightness"] = config_.display_brightness;
+
+    // OTA settings
+    doc["ota_github_repo"] = config_.ota_github_repo;
+    doc["ota_auto_check"] = config_.ota_auto_check;
+    doc["ota_enabled"] = config_.ota_enabled;
 
     File file = LittleFS.open(kConfigPath, "w");
     if (!file) {

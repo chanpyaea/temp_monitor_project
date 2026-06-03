@@ -230,3 +230,35 @@ void MqttManager::publishDiscoveryConfig(const char *component, const char *name
 
     LOGI("MQTT", "Discovery sent: %s", name);
 }
+
+bool MqttManager::publishHistory(const DataStats &stats) {
+    if (!isConnected()) {
+        return false;
+    }
+
+    JsonDocument doc;
+    doc["temp_min"] = serialized(String(stats.temp_min, 1));
+    doc["temp_max"] = serialized(String(stats.temp_max, 1));
+    doc["temp_avg"] = serialized(String(stats.temp_avg, 1));
+    doc["hum_min"] = serialized(String(stats.hum_min, 1));
+    doc["hum_max"] = serialized(String(stats.hum_max, 1));
+    doc["hum_avg"] = serialized(String(stats.hum_avg, 1));
+    doc["sample_count"] = stats.sample_count;
+
+    char payload[256];
+    serializeJson(doc, payload, sizeof(payload));
+
+    const auto &cfg = storage_->config();
+    char topic[128];
+    snprintf(topic, sizeof(topic), "%s/history", cfg.mqtt_base_topic);
+
+    bool success = mqtt_client_->publish(topic, payload);
+
+    if (success) {
+        LOGI("MQTT", "Published history stats to %s", topic);
+    } else {
+        LOGW("MQTT", "History publish failed");
+    }
+
+    return success;
+}

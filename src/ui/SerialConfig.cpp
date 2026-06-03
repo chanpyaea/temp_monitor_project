@@ -44,10 +44,11 @@ void SerialConfigMenu::showMainMenu() {
     Serial.println("2. MQTT Settings");
     Serial.println("3. Sensor Calibration");
     Serial.println("4. View Status");
-    Serial.println("5. Save & Exit");
-    Serial.println("6. Exit without saving");
+    Serial.println("5. OTA Update");
+    Serial.println("6. Save & Exit");
+    Serial.println("7. Exit without saving");
     Serial.println("========================================");
-    Serial.print("Select option (1-6): ");
+    Serial.print("Select option (1-7): ");
 }
 
 void SerialConfigMenu::showWiFiMenu() {
@@ -124,7 +125,13 @@ void SerialConfigMenu::showStatusMenu() {
     Serial.printf("  Humidity Offset: %.2f%%\n", cfg.hum_offset);
     Serial.printf("  Units: %s\n", cfg.temp_units_celsius ? "Celsius" : "Fahrenheit");
 
+    Serial.println("\n[OTA]");
+    Serial.printf("  GitHub Repo: %s\n", cfg.ota_github_repo);
+    Serial.printf("  OTA Enabled: %s\n", cfg.ota_enabled ? "Yes" : "No");
+    Serial.printf("  Auto-check: %s\n", cfg.ota_auto_check ? "Yes" : "No");
+
     Serial.println("\n[System]");
+    Serial.printf("  Version: %s\n", Config::APP_VERSION);
     Serial.printf("  Free Heap: %u bytes\n", ESP.getFreeHeap());
     Serial.printf("  Uptime: %lu seconds\n", millis() / 1000);
 
@@ -132,8 +139,32 @@ void SerialConfigMenu::showStatusMenu() {
     Serial.println("\nPress any key to continue...");
 }
 
+void SerialConfigMenu::showOTAMenu() {
+    const auto &cfg = storage_->config();
+
+    Serial.println("\n--- OTA Update Settings ---");
+    Serial.printf("Current Version: %s\n", Config::APP_VERSION);
+    Serial.printf("GitHub Repo: %s\n", cfg.ota_github_repo);
+    Serial.printf("OTA Enabled: %s\n", cfg.ota_enabled ? "Yes" : "No");
+    Serial.printf("Auto-check on Boot: %s\n", cfg.ota_auto_check ? "Yes" : "No");
+
+    if (ota_manager_) {
+        if (ota_manager_->isUpdateAvailable()) {
+            Serial.printf("\n*** Update Available: %s ***\n", ota_manager_->latestVersion());
+        }
+    }
+
+    Serial.println("\n1. Check for Updates");
+    Serial.println("2. Install Update (if available)");
+    Serial.println("3. Set GitHub Repo");
+    Serial.println("4. Toggle OTA Enable");
+    Serial.println("5. Toggle Auto-check");
+    Serial.println("6. Back to main menu");
+    Serial.print("Select option (1-6): ");
+}
+
 void SerialConfigMenu::handleInput() {
-    static char menu_state = 0; // 0=main, 1=wifi, 2=mqtt, 3=sensor
+    static char menu_state = 0; // 0=main, 1=wifi, 2=mqtt, 3=sensor, 4=ota
     static char input_buffer[128];
 
     last_input_ms_ = millis();
@@ -162,13 +193,17 @@ void SerialConfigMenu::handleInput() {
                 showMainMenu();
                 break;
             case '5':
+                menu_state = 4;
+                showOTAMenu();
+                break;
+            case '6':
                 Serial.println("\nSaving configuration...");
                 storage_->saveConfig(true);
                 Serial.println("Configuration saved!");
                 Serial.println("Exiting configuration menu");
                 active_ = false;
                 break;
-            case '6':
+            case '7':
                 Serial.println("\nExiting without saving");
                 active_ = false;
                 break;
@@ -314,6 +349,58 @@ void SerialConfigMenu::handleInput() {
             default:
                 Serial.println("\nInvalid option");
                 showSensorMenu();
+                break;
+        }
+    }
+    else if (menu_state == 4) { // OTA menu
+        Serial.println(c);
+        switch (c) {
+            case '1':
+                Serial.println("\nChecking for updates...");
+                if (ota_manager_ && ota_manager_->checkForUpdate()) {
+                    Serial.printf("Update available: %s\n", ota_manager_->latestVersion());
+                } else if (ota_manager_) {
+                    Serial.printf("No update available (current: %s)\n", Config::APP_VERSION);
+                    if (strlen(ota_manager_->errorMessage()) > 0) {
+                        Serial.printf("Error: %s\n", ota_manager_->errorMessage());
+                    }
+                }
+                showOTAMenu();
+                break;
+            case '2':
+                if (ota_manager_ && ota_manager_->isUpdateAvailable()) {
+                    Serial.printf("\nInstalling update: %s\n", ota_manager_->latestVersion());
+                    Serial.println("Please wait, do not power off...");
+                    ota_manager_->startUpdate();
+                } else {
+                    Serial.println("\nNo update available to install");
+                    showOTAMenu();
+                }
+                break;
+            case '3':
+                Serial.print("\nEnter GitHub Repo (owner/repo): ");
+                readLine(input_buffer, sizeof(input_buffer));
+                strncpy(storage_->config().ota_github_repo, input_buffer, sizeof(storage_->config().ota_github_repo));
+                Serial.println("GitHub repo updated");
+                showOTAMenu();
+                break;
+            case '4':
+                storage_->config().ota_enabled = !storage_->config().ota_enabled;
+                Serial.printf("\nOTA Updates: %s\n", storage_->config().ota_enabled ? "Enabled" : "Disabled");
+                showOTAMenu();
+                break;
+            case '5':
+                storage_->config().ota_auto_check = !storage_->config().ota_auto_check;
+                Serial.printf("\nAuto-check on boot: %s\n", storage_->config().ota_auto_check ? "Enabled" : "Disabled");
+                showOTAMenu();
+                break;
+            case '6':
+                menu_state = 0;
+                showMainMenu();
+                break;
+            default:
+                Serial.println("\nInvalid option");
+                showOTAMenu();
                 break;
         }
     }
