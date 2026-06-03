@@ -60,6 +60,44 @@ A professional ESP32-based temperature and humidity monitoring system with OLED 
 
 ## Building and Flashing
 
+### Option 1: Download Pre-built Binaries (Easiest)
+
+Download the latest firmware binaries from the [GitHub Releases](https://github.com/chanpyaea/temp_monitor_project/releases) page.
+
+Each release includes:
+- `temp_monitor_vX.X.X.bin` - Main firmware
+- `bootloader.bin` - ESP32 bootloader
+- `partitions.bin` - Partition table
+- `checksums.txt` - SHA256 verification
+- `FLASH_INSTRUCTIONS.md` - Detailed flashing guide
+
+**Flash using esptool.py:**
+```bash
+esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 460800 write_flash \
+  0x1000 bootloader.bin \
+  0x8000 partitions.bin \
+  0x10000 temp_monitor_vX.X.X.bin
+```
+
+**Windows (COM port):**
+```bash
+esptool.py --chip esp32 --port COM3 --baud 460800 write_flash \
+  0x1000 bootloader.bin \
+  0x8000 partitions.bin \
+  0x10000 temp_monitor_vX.X.X.bin
+```
+
+**Flash using ESP Flash Download Tool (Windows GUI):**
+1. Download [ESP Flash Download Tool](https://www.espressif.com/en/support/download/other-tools)
+2. Select ESP32 chip
+3. Add files with addresses:
+   - `bootloader.bin` @ `0x1000`
+   - `partitions.bin` @ `0x8000`
+   - `temp_monitor_vX.X.X.bin` @ `0x10000`
+4. Select COM port and click START
+
+### Option 2: Build from Source
+
 ```bash
 # Clone or navigate to project directory
 cd temp_monitor_project
@@ -347,6 +385,41 @@ This project demonstrates professional firmware patterns from Project Aura:
 - **Memory Monitoring** - Leak detection
 
 See the learning guides in `C:\scripts\` for detailed explanations.
+
+## Release Process (For Maintainers)
+
+The project uses GitHub Actions to automatically build and publish firmware binaries.
+
+### Creating a New Release
+
+1. **Update version number** in `platformio.ini`:
+   ```ini
+   build_flags =
+       -DAPP_VERSION=\"X.X.X\"
+   ```
+
+2. **Commit and push changes**:
+   ```bash
+   git add platformio.ini
+   git commit -m "Bump version to vX.X.X"
+   git push
+   ```
+
+3. **Create and push a tag**:
+   ```bash
+   git tag -a vX.X.X -m "Release vX.X.X - Brief description"
+   git push origin vX.X.X
+   ```
+
+4. **GitHub Actions automatically**:
+   - Builds the firmware for ESP32
+   - Generates checksums for all binaries
+   - Creates a GitHub release with all artifacts
+   - Attaches flashing instructions
+
+### Manual Workflow Trigger
+
+You can also trigger the build manually from the GitHub Actions tab without creating a tag.
 
 ## License
 

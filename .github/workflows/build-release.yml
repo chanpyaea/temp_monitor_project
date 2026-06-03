@@ -1,0 +1,95 @@
+name: Build and Release Firmware
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pio-
+
+    - name: Install PlatformIO
+      run: |
+        pip install platformio
+        pio --version
+
+    - name: Build firmware
+      run: pio run
+
+    - name: Prepare release artifacts
+      run: |
+        mkdir -p release_files
+        cp .pio/build/temp_monitor/firmware.bin release_files/temp_monitor_${{ github.ref_name }}.bin
+        cp .pio/build/temp_monitor/bootloader.bin release_files/bootloader.bin
+        cp .pio/build/temp_monitor/partitions.bin release_files/partitions.bin
+
+    - name: Generate checksums
+      run: |
+        cd release_files
+        sha256sum *.bin > checksums.txt
+        cat checksums.txt
+
+    - name: Create Release Notes
+      run: |
+        cat > release_files/FLASH_INSTRUCTIONS.md << 'EOF'
+        # Flashing Instructions
+
+        ## Using esptool.py
+        ```bash
+        esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 460800 write_flash \
+          0x1000 bootloader.bin \
+          0x8000 partitions.bin \
+          0x10000 temp_monitor_${{ github.ref_name }}.bin
+        ```
+
+        ## Using ESP Flash Download Tool
+        1. Select ESP32 chip
+        2. Add files with addresses:
+           - bootloader.bin @ 0x1000
+           - partitions.bin @ 0x8000
+           - temp_monitor_${{ github.ref_name }}.bin @ 0x10000
+        3. Click START
+
+        ## Using PlatformIO
+        ```bash
+        pio run --target upload
+        ```
+
+        ## Verify checksums
+        See checksums.txt for SHA256 hashes.
+        EOF
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          release_files/*.bin
+          release_files/checksums.txt
+          release_files/FLASH_INSTRUCTIONS.md
+        body_path: release_files/FLASH_INSTRUCTIONS.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
