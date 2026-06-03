@@ -5,9 +5,15 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.3.0)'
+        required: true
+        type: string
+        default: 'v1.0.0'
 
 permissions:
-  contents: write  # Required to create releases and upload assets
+  contents: write
 
 jobs:
   build:
@@ -16,6 +22,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+        fi
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -40,12 +55,20 @@ jobs:
     - name: Build firmware
       run: pio run
 
+    - name: Verify build output
+      run: |
+        echo "=== Checking build output ==="
+        ls -la .pio/build/temp_monitor/*.bin
+        echo "=== Files found ==="
+
     - name: Prepare release artifacts
       run: |
         mkdir -p release_files
-        cp .pio/build/temp_monitor/firmware.bin release_files/temp_monitor_${{ github.ref_name }}.bin
+        cp .pio/build/temp_monitor/firmware.bin release_files/temp_monitor_${{ steps.version.outputs.VERSION }}.bin
         cp .pio/build/temp_monitor/bootloader.bin release_files/bootloader.bin
         cp .pio/build/temp_monitor/partitions.bin release_files/partitions.bin
+        echo "=== Release files ==="
+        ls -la release_files/
 
     - name: Generate checksums
       run: |
@@ -55,44 +78,42 @@ jobs:
 
     - name: Create Release Notes
       run: |
-        cat > release_files/FLASH_INSTRUCTIONS.md << 'EOF'
+        cat > release_files/FLASH_INSTRUCTIONS.md << ENDOFFILE
         # Flashing Instructions
 
         ## Using esptool.py
-        ```bash
-        esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 460800 write_flash \
-          0x1000 bootloader.bin \
-          0x8000 partitions.bin \
-          0x10000 temp_monitor_${{ github.ref_name }}.bin
-        ```
+        \`\`\`bash
+        esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 460800 write_flash \\
+          0x1000 bootloader.bin \\
+          0x8000 partitions.bin \\
+          0x10000 temp_monitor_${{ steps.version.outputs.VERSION }}.bin
+        \`\`\`
 
         ## Using ESP Flash Download Tool
         1. Select ESP32 chip
         2. Add files with addresses:
            - bootloader.bin @ 0x1000
            - partitions.bin @ 0x8000
-           - temp_monitor_${{ github.ref_name }}.bin @ 0x10000
+           - temp_monitor_${{ steps.version.outputs.VERSION }}.bin @ 0x10000
         3. Click START
-
-        ## Using PlatformIO
-        ```bash
-        pio run --target upload
-        ```
 
         ## Verify checksums
         See checksums.txt for SHA256 hashes.
-        EOF
+        ENDOFFILE
 
-    - name: Upload Release Assets
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    - name: Upload to Release
+      uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
         files: |
-          release_files/*.bin
+          release_files/temp_monitor_${{ steps.version.outputs.VERSION }}.bin
+          release_files/bootloader.bin
+          release_files/partitions.bin
           release_files/checksums.txt
           release_files/FLASH_INSTRUCTIONS.md
         body_path: release_files/FLASH_INSTRUCTIONS.md
         draft: false
         prerelease: false
+        fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
