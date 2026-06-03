@@ -83,15 +83,19 @@ bool MqttManager::connect() {
 bool MqttManager::reconnect() {
     reconnect_attempts_++;
 
+    // After 5 quick attempts, use exponential backoff but never give up
     if (reconnect_attempts_ > 5) {
-        // Give up after 5 attempts, wait longer
+        // Wait longer between attempts (60 seconds) but keep trying forever
         if (millis() - last_connect_attempt_ms_ < 60000) {
             return false;
         }
-        reconnect_attempts_ = 0;
+        // Don't reset counter - keep trying with 60s interval
     }
 
-    return connect();
+    bool connected = connect();
+
+    // Only reset counter on successful connection (already done in connect())
+    return connected;
 }
 
 void MqttManager::disconnect() {

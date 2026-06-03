@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+permissions:
+  contents: write  # Required to create releases and upload assets
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -82,7 +85,7 @@ jobs:
 
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
       with:
         files: |
           release_files/*.bin
